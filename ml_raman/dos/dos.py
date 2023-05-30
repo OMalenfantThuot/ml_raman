@@ -1,5 +1,6 @@
-import numpy as np
 import h5py
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 class Dos:
@@ -81,5 +82,16 @@ class Dos:
         with h5py.File(filename, "r") as f:
             return cls(f["energies"], f["weights"])
 
-    def plot(self):
-        pass
+    def plot(self, ax=None, **kwargs):
+        if ax is None:
+            direct_plot = True
+            _, ax = plt.subplots(figsize=(10, 6))
+
+        ax.plot(self.energies, self.weights, **kwargs)
+        ax.set_ylim([0, None])
+        ax.set_xlim([self.emin, self.emax])
+
+        if direct_plot:
+            plt.show()
+        else:
+            return ax
