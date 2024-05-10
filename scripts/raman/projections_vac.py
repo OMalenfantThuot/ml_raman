@@ -9,17 +9,25 @@ import argparse
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
 from ml_raman.raman.gamma_modes_pristine import gamma_modes_pristine
+from ml_raman.raman.gamma_modes_hBN import gamma_modes_hBN
 from ml_raman.raman.dosdata import GeneralDOSData
 import csv
+
+plt.style.use("ggplot")
 
 
 def create_parser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("natoms", help="Number on atoms in supercell.", type=int)
     parser.add_argument(
-        "phonons_path", help="path to file containing phonons.", type=str
+        "primitive_cell",
+        help="Primitive cell. Arguments supported for now are C and BN.",
+        type=str,
+    )
+    parser.add_argument("natoms", help="Number of atoms in supercell.", type=int)
+    parser.add_argument(
+        "phonons_path", help="Path to file containing phonons.", type=str
     )
     parser.add_argument(
         "--smearing",
@@ -29,7 +37,7 @@ def create_parser():
     )
     parser.add_argument(
         "width",
-        help="smearing width. For Gaussian smearing, this c orresponds to \sigma. For Lorentzian smearing, this corresponds to \gamma.",
+        help="smearing width. For Gaussian smearing, this corresponds to \sigma. For Lorentzian smearing, this corresponds to \gamma.",
         type=float,
     )
     parser.add_argument(
@@ -47,15 +55,30 @@ def create_parser():
         default="Raman spectra.",
     )
     parser.add_argument(
+        "--figure_min_x",
+        help="Minimum value for  the figure x axis.",
+        type=float,
+        default=1000,
+    )
+    parser.add_argument(
+        "--figure_max_x",
+        help="Maximum value for  the figure x axis.",
+        type=float,
+        default=1600,
+    )
+    parser.add_argument(
         "--save_fit",
-        help="saves amplitude, the full width at half maximum and center of raman spectrum.",
+        help="Saves amplitude, the full width at half maximum and center of raman spectrum.",
         default=False,
     )
-    parser.add_argument("--vac_idx", help="indices of vacancies.", type=int, nargs='*', default=None)
+    parser.add_argument(
+        "--vac_idx", help="Indices of vacancies.", type=int, nargs="*", default=None
+    )
     return parser
 
 
 def main(args):
+    pc = args.primitive_cell
     natoms = args.natoms
     npts = args.npts
     width = args.width
@@ -70,37 +93,36 @@ def main(args):
     eig_avg = np.zeros((2, nmodes))
     raman_proj = np.empty((2, npts))
 
-    # Define two gamma modes of pristine graphene
-    if args.vac_idx is not None:
-        vac_idx = args.vac_idx
-        vac_idx.sort(reverse=True)
-        l = len(vac_idx)
-        v1, v2 = gamma_modes_pristine(natoms + l)
-        for i in args.vac_idx:
-            v1 = np.delete(
-            v1, [3 * i, 3 * i + 1, 3 * i + 2])
-            v2 = np.delete(
-            v2, [3 * i, 3 * i + 1, 3 * i + 2])
+    # Define two gamma modes of pristine graphene or BN
 
-            
+    vac_idx = args.vac_idx
+    l = len(vac_idx) if vac_idx is not None else 0
+    if pc == "C":
+        v1, v2 = gamma_modes_pristine(natoms + l)
+    elif pc == "BN":
+        v1, v2 = gamma_modes_hBN(natoms + l)
     else:
-        v1, v2 = gamma_modes_pristine(natoms)
-    print(len(v1))
+        print("Primitive cell not supported by script.")
+    if l != 0:
+        vac_idx.sort(reverse=True)
+        for i in args.vac_idx:
+            v1 = np.delete(v1, [3 * i, 3 * i + 1, 3 * i + 2])
+            v2 = np.delete(v2, [3 * i, 3 * i + 1, 3 * i + 2])
 
     f1 = h5py.File(args.phonons_path, "r")
     key_energies = list(f1.keys())[0]
     key_modes = list(f1.keys())[1]
     # Get the data
-    eigenval =  np.array(f1[key_energies])
-    eigvec =  np.array(f1[key_modes])
+    eigenval = np.array(f1[key_energies])
+    eigvec = np.array(f1[key_modes])
     abs1 = np.inner(v1, np.transpose(eigvec))
     abs2 = np.inner(v2, np.transpose(eigvec))
     raman = abs1**2 + abs2**2
     eig_avg[0] = eigenval
     eig_avg[1] = raman
-    for el in list(zip(eigenval, np.transpose(eigvec),raman)):
-        if el[2]>=10**(-4):
-            print("projections",el)
+    # for el in list(zip(eigenval, np.transpose(eigvec),raman)):
+    #    if el[2]>=10**(-4):
+    #        print("projections",el)
     eig_raman_sorted = np.vstack((eigenval, raman))[:, eigenval.argsort()]
     eig_raman_sorted_tot = []
     eig_raman_sorted_tot.append(eig_raman_sorted)
@@ -109,25 +131,22 @@ def main(args):
     print("sum of raman projections = ", np.sum(raman))
     rdos = GeneralDOSData(eig_avg[0], eig_avg[1], info={"label": "raman"})
     rfig = plt.figure()
-    # rdosax = rfig.add_axes([0.5, 0.2, 0.35, 0.7])
     rdosax = rfig.add_axes([0.2, 0.2, 0.75, 0.7])
     if width == 0:
         rdosax.plot(eig_avg[0], eig_avg[1], label="raman")
-        y_max = max( eig_avg[1])
+        y_max = max(eig_avg[1])
 
     else:
-        # rdosax = rdos.plot(npts=npts, width=width, ax=rdosax, xmin=1200, xmax=1800)
         rdos.plot(npts=npts, width=width, ax=rdosax, smearing=smearing)
         rdosplot = rdos.sample_grid(
-                npts=npts, width=width, xmin=1200, xmax=1800, smearing=smearing
-            )
+            npts=npts, width=width, xmin=1200, xmax=1800, smearing=smearing
+        )
         y_max = max(rdosplot.get_weights())
 
     rdosax.tick_params(axis="both", which="major", labelsize=12)
-    rdosax.set_xlim(0, 2000)
+    rdosax.set_xlim(args.figure_min_x, args.figure_max_x)
     rdosax.set_ylim(0, y_max)
-    print("max = ", y_max)
-    #rdosax.set_ylim(0, max(eig_avg[1]))
+    # rdosax.set_ylim(0, max(eig_avg[1]))
     rdosax.set_title(args.figure_title, fontsize=8)
     rdosax.set_xlabel("Frequency $\mathregular{(cm^{-1}}$)", fontsize=16)
     rdosax.set_ylabel("Intensity (a.u)", fontsize=16)
@@ -138,7 +157,7 @@ def main(args):
             np.savetxt("raman" + args.output_name + ".dat", np.transpose(eig_avg))
         else:
             rdosplot = rdos.sample_grid(
-                npts=npts, width=width, xmin=800, xmax=1800, smearing=smearing
+                npts=npts, width=width, xmin=0, xmax=1800, smearing=smearing
             )
             raman_proj[1] = rdosplot.get_weights()
             raman_proj[0] = rdosplot.get_energies()
@@ -214,7 +233,6 @@ def main(args):
                 npts=npts, width=width, xmin=1200, xmax=1800, smearing=smearing
             )
             rdosax.set_ylim(0, max(rdosplot.get_weights()))
-            print("max = ", max(rdosplot.get_weights()))
             # rdosax.set_ylim(0,1)
             # rdosax.set_ylim(0,0.0001)
             rdosax.plot(
