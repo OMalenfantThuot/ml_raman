@@ -2,7 +2,7 @@
 
 from mlcalcdriver import Job, Posinp
 from  mlcalcdriver.calculators import SchnetPackCalculator
-from mlcalcdriver.workflows.phonon import PhononFromHessian
+from ml_raman.phonons.phonons_lanczos import PhononFromHessianLanczos
 import argparse
 import h5py
 import numpy as np
@@ -53,6 +53,12 @@ def create_parser():
 
     exact_diag_parser = diag_mode_parser.add_parser("exact")
     lanczos_diag_parser = diag_mode_parser.add_parser("lanczos")
+    lanczos_diag_parser.add_argument("neigs",help="Number of highest eigenvalues computed by the lanczos method.",
+    type=int
+    )
+    lanczos_diag_parser.add_argument("--initial_guess",help="first or second Gamma mode is used as a starting vector for iteration. Default: random.",
+    type=int
+    )
     return parser
 
 
@@ -81,21 +87,13 @@ def main(args):
         np.save(output_name, job.results["hessian"])
 
     elif args.type == "phonon":
-        #posinp = Posinp.from_file(args.posinp)
-        try:
-            posinp = Posinp.from_file(args.posinp)
-        except Exception as e:
-            print(f"ML_Calc_Driver read exception: {str(e)}")
-            try:
-                posinp = Posinp.read(args.posinp)
-            except Exception as e:
-                print(f"ASE read exception: {str(e)}")
-                exit()
-
+        posinp = Posinp.from_file(args.posinp)
         hessian = np.load(args.hessian_path)
-
-        phonon = PhononFromHessian(posinp=posinp, hessian=hessian)
-        phonon.run()
+        diag_mode = args.diag_mode
+        neigs = args.neigs
+        initial_guess = args.initial_guess
+        phonon = PhononFromHessianLanczos(posinp=posinp, hessian=hessian, diag_mode=diag_mode, neigs=neigs, initial_guess=initial_guess)
+        phonon.run_exact_lanczos()
 
         savename = (
             args.results_savepath

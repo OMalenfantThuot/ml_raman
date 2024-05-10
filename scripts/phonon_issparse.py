@@ -2,7 +2,8 @@
 
 from mlcalcdriver import Job, Posinp
 from  mlcalcdriver.calculators import SchnetPackCalculator
-from mlcalcdriver.workflows.phonon import PhononFromHessian
+from ml_raman.phonons.phonons_dounia import PhononFromHessian
+#from mlcalcdriver.workflows.phonon import PhononFromHessian
 import argparse
 import h5py
 import numpy as np
@@ -81,21 +82,13 @@ def main(args):
         np.save(output_name, job.results["hessian"])
 
     elif args.type == "phonon":
-        #posinp = Posinp.from_file(args.posinp)
-        try:
-            posinp = Posinp.from_file(args.posinp)
-        except Exception as e:
-            print(f"ML_Calc_Driver read exception: {str(e)}")
-            try:
-                posinp = Posinp.read(args.posinp)
-            except Exception as e:
-                print(f"ASE read exception: {str(e)}")
-                exit()
-
+        posinp = Posinp.from_file(args.posinp)
         hessian = np.load(args.hessian_path)
 
         phonon = PhononFromHessian(posinp=posinp, hessian=hessian)
-        phonon.run()
+        phonon.run_sparse()
+
+
 
         savename = (
             args.results_savepath
@@ -104,7 +97,7 @@ def main(args):
         )
         with h5py.File(savename, "w") as f:
             f.create_dataset("modes", data=phonon.normal_modes)
-            f.create_dataset("energies", data=phonon.energies)   
+            f.create_dataset("energies", data=phonon.energies)
 
     else:
         raise NotImplementedError()
