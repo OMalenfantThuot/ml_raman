@@ -4,7 +4,6 @@ from mlcalcdriver import Job, Posinp
 from mlcalcdriver.calculators import PatchSPCalculator
 from mlcalcdriver.workflows.phonon import PhononFromHessian
 from ml_raman.raman.gamma_modes_pristine import gamma_modes_pristine
-from schnetpack.utils import load_model
 import argparse
 import h5py
 import numpy as np
@@ -77,7 +76,7 @@ def create_parser():
         "--tol",
         type=float,
         default=0,
-        help="Tolerance for the Lanczos convergence. Only relevent in sparse calculations.",
+        help="Tolerance for the Lanczos convergence. Only relevant in sparse calculations.",
     )
     phonon_parser.add_argument(
         "--initial_guess",
@@ -116,17 +115,9 @@ def main(args):
                 exit()
 
         if args.grid is None:
-            from utils.models import get_graphene_patches_grid
+            from utils.models import get_graphene_patches_grid, get_schnet_hyperparams
 
-            size = int(np.sqrt(len(posinp) / 2))
-            temp_model = load_model(args.model, map_location="cpu")
-            n_neurons = temp_model.representation.embedding.weight.shape[1]
-            n_interactions = len(temp_model.representation.interactions)
-            cutoff = float(
-                temp_model.representation.interactions[0].cutoff_network.cutoff
-            )
-            del temp_model
-
+            n_neurons, n_interactions, cutoff = get_schnet_hyperparams(args.model)
             patches_grid = get_graphene_patches_grid(
                 "hessian", n_interactions, cutoff, n_neurons, size, size
             )
