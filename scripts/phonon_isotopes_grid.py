@@ -3,7 +3,7 @@
 from mlcalcdriver import Job, Posinp
 from mlcalcdriver.calculators import PatchSPCalculator
 from mlcalcdriver.workflows.phonon import PhononFromHessian
-from ml_raman.raman.gamma_modes_pristine import gamma_modes_pristine
+from ml_raman.raman.gamma_modes_graphene import gamma_eigendisplacements_graphene
 import argparse
 import h5py
 import numpy as np
@@ -165,43 +165,9 @@ def main(args):
                 exit()
 
         hessian = load_hessian(args)
-
-        if args.sparse:
-            if args.initial_guess is not None:
-                if args.initial_guess == "graphene":
-                    from mlcalcdriver.globals import (
-                        AMU_TO_EMU,
-                        EV_TO_HA,
-                        HA_TO_CMM1,
-                        B_TO_ANG,
-                    )
-
-                    (v1, v2), sigma = gamma_modes_pristine(
-                        int(hessian.shape[0] / 3), return_frequency=True
-                    )
-                    sigma = (
-                        (sigma / HA_TO_CMM1) ** 2
-                        * AMU_TO_EMU
-                        / (EV_TO_HA * B_TO_ANG**2)
-                    )
-                    v0 = v1
-                else:
-                    raise NotImplementedError()
-                del v1, v2
-            else:
-                sigma, v0 = None, None
-            sparse_kwargs = {
-                "k": int(args.eigs_proportion * hessian.shape[0]),
-                "sigma": sigma,
-                "mode": "normal",
-                "tol": args.tol,
-                "v0": v0,
-            }
-        else:
-            sparse_kwargs = {}
-
-        phonon = PhononFromHessian(posinp=posinp, hessian=hessian, sparse=args.sparse)
-        phonon.run(use_jax=args.use_jax, sparse_kwargs=sparse_kwargs)
+       
+        phonon = PhononFromHessian(posinp=posinp, hessian=hessian, sparse=False)
+        phonon.run(use_jax=args.use_jax, sparse_kwargs={})
 
         savename = (
             args.results_savepath
