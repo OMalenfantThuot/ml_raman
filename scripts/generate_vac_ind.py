@@ -19,10 +19,17 @@ def create_parser():
         help="type of vacancies. 'B' for even indices, 'N' for odd indices.",
         type=str,
     )
+    parser.add_argument(
+        "--distribution",
+        help="distribution type: 'even' for equally spaced  or 'random' for randomly distributed.",
+        type=str,
+        choices=["even", "random"],
+        default="even",
+    )
     return parser
 
 
-def generate_indices(num_atoms, concentration, atom_type):
+def generate_indices(num_atoms, concentration, atom_type, distribution):
     """
     Generate a subset of indices for hBN that are equally spaced based on the desired concentration and atom type.
 
@@ -42,24 +49,30 @@ def generate_indices(num_atoms, concentration, atom_type):
 
     # Generate a list of all valid indices for the specified atom type
     valid_indices = list(range(start_index, num_atoms, 2))
-    # print(valid_indices)
+    
     # Calculate the number of indices to select
     num_selected = int(np.round(2 * concentration * len(valid_indices)))
+    
+    if distribution =="even":
+        # Determine the step size to ensure equal spacing
+        step_size = len(valid_indices) // num_selected
 
-    # Determine the step size to ensure equal spacing
-    step_size = len(valid_indices) // num_selected
-
-    # Generate equally spaced indices
-    selected_indices = [valid_indices[i * step_size] for i in range(num_selected)]
+        # Generate equally spaced indices
+        selected_indices = [valid_indices[i * step_size] for i in range(num_selected)]
+    elif distribution=="random":
+        selected_indices = random.sample(valid_indices, num_selected)
+        # Sort the indices to be in increasing order
+        selected_indices.sort()
+    else:
+        raise ValueError("Invalid distribution type. Choose 'even' or 'random'.")
 
     return selected_indices
 
 
 def main(args):
     selected_indices = generate_indices(
-        args.num_atoms, args.concentration, args.atom_type
+        args.num_atoms, args.concentration, args.atom_type, args.distribution
     )
-    # print("selected indices : ", selected_indices)
     print("selected indices : ")
     print(" ".join(map(str, selected_indices)))
 
