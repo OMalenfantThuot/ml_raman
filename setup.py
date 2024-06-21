@@ -1,6 +1,6 @@
 from setuptools import setup
 
-requirements = ["abipy==0.9.3", "h5py==3.8.0", "numpy==1.23", "torch>=1.4.0", "mlcalcdriver>=1.0.0"]
+requirements = ["abipy>=0.9.3", "h5py>=3.8.0", "numpy>=1.23", "torch>=1.4.0", "mlcalcdriver>=1.0.0"]
 
 setup(
     name="ml_raman",
