@@ -49,8 +49,17 @@ class Raman:
         with h5py.File(self.phonons_path, "r") as f1:
             eigenval = np.array(f1[list(f1.keys())[0]])
             eigvec = np.array(f1[list(f1.keys())[1]])
-        sc = read(self.sc_path)
-        defective_masses = np.repeat(sc.get_masses(), 3)
+
+        try:
+            sc = Posinp.from_file(self.sc_path)
+            defective_masses = np.repeat(sc.masses, 3)
+        except Exception as e1:
+            try:
+                sc = read(self.sc_path)
+                defective_masses = np.repeat(sc.get_masses(), 3)
+            except Exception as e2:
+                print(f"ML_Calc_driver exception: {str(e1)}")
+                print(f"ASE exception: {str(e2)}")
 
         abs1 = np.inner(self.v1, np.transpose(eigvec) / np.sqrt(defective_masses))
         abs2 = np.inner(self.v2, np.transpose(eigvec) / np.sqrt(defective_masses))
