@@ -66,6 +66,8 @@ def main(args):
     if args.material == "graphene":
         assert (posinp[0].position[0:2] == np.array([0, 0])).all()
         posinp = posinp.translate([0.61, 0.35, posinp.cell[2, 2] / 2])
+    elif args.material == "BN":
+        posinp = posinp.translate([0.62, 0.36, posinp.cell[2, 2] / 2])
     else:
         raise NotImplementedError()
 

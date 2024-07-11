@@ -2,7 +2,7 @@ from mlcalcdriver import Posinp
 from mlcalcdriver.globals import ATOMS_MASS
 from ase.io import read
 from ase.build.supercells import make_supercell
-from mlcalcdriver.calculators import SchnetPackCalculator
+from mlcalcdriver.calculators import PatchSPCalculator
 from mlcalcdriver.workflows import Geopt
 from mlcalcdriver.interfaces import posinp_to_ase_atoms
 import numpy as np
@@ -19,7 +19,10 @@ def create_parser():
     )
     parser.add_argument(
         "supercell",
-        help="size of the supercell of the form int int. Third argument is taken to be 1 since we are working with a 2D system.",
+        help="""
+        Size of the supercell of the form int int. Third argument is taken
+        to be 1 since we are working with a 2D system.
+        """,
         nargs=2,
         type=int,
     )
@@ -31,20 +34,25 @@ def create_parser():
         "--n_vacancies", help="Number of vacancies. Default is 0.", type=int, default=0
     )
     parser.add_argument(
-        "--vacancies_indices",
-        help="option to choose specific indices for vacancies.",
-        type=int,
-        nargs="*",
+        "--vacancies_file",
+        help="Path to the file containing the vacancies index.",
+        default=None,
     )
     parser.add_argument(
         "--relax",
         action=argparse.BooleanOptionalAction,
-        help="option to relax structure",
+        help="Option to relax structure",
+        default=True,
+    )
+    parser.add_argument(
+        "--precalculate_neighbors",
+        action=argparse.BooleanOptionalAction,
+        help="Option to precalculate neighbors for the relaxation.",
         default=True,
     )
     parser.add_argument(
         "--model",
-        help="path to model used to relax structure. Only used if --relax True.",
+        help="Path to model used to relax structure. Only used if --relax True.",
         type=str,
         default=None,
     )
@@ -54,51 +62,92 @@ def create_parser():
         default="cpu",
         type=str,
     )
+    parser.add_argument(
+        "--output_format",
+        choices=["mlc", "xyz", "cif"],
+        default="mlc",
+        help="Format of the output file.",
+    )
+    parser.add_argument(
+        "--max_iter",
+        type=int,
+        default=1000,
+        help="Max iterations for geometry optimization",
+    )
+    parser.add_argument("--restart_file", default=None)
     return parser
 
 
 def main(args):
-    cif = read(args.primitive_cell)
     Mx, My = args.supercell
-    n_vac = args.n_vacancies
-    M = [[Mx, 0, 0], [0, My, 0], [0, 0, 1]]
-    sc = make_supercell(cif, M)
-    posinp = Posinp.from_ase(sc)
-    if args.vacancies_indices is not None:
-        indices_to_remove = args.vacancies_indices
+    if args.restart_file:
+        posinp = Posinp.from_file(args.restart_file)
     else:
-        indices_to_remove = random.sample(range(len(posinp.atoms)), n_vac)
-    indices_to_remove.sort(reverse=True)
-    for index in indices_to_remove:
-        removed_element = posinp.atoms.pop(index)
-    if args.relax == True:
-        calc = SchnetPackCalculator(args.model, device=args.device)
-        g = Geopt(posinp, calc, step_size=args.step, max_iter=1000)
-        g.run(verbose=2)
-        filename_relaxed = (
-            args.output_name[:-4] + "_relaxed.xyz"
-            if args.output_name.endswith(".xyz")
-            else args.output_name + "_relaxed.xyz"
+        cif = read(args.primitive_cell)
+        n_vac = args.n_vacancies
+        M = [[Mx, 0, 0], [0, My, 0], [0, 0, 1]]
+        sc = make_supercell(cif, M)
+        posinp = Posinp.from_ase(sc)
+
+        if args.vacancies_file is not None:
+            indices_to_remove = np.load(args.vacancies_file)
+        else:
+            indices_to_remove = random.sample(range(len(posinp.atoms)), n_vac)
+            indices_to_remove.sort()
+        indices_to_remove = np.flip(indices_to_remove)
+
+        for index in indices_to_remove:
+            _ = posinp.atoms.pop(index)
+
+        unrelaxed_output = args.output_name + "_unrelaxed." + args.output_format
+        if args.output_format == "mlc":
+            posinp.write(unrelaxed_output)
+        elif args.output_format in ["xyz", "cif"]:
+            ase_unrelaxed = posinp_to_ase_atoms(posinp)
+            ase_unrelaxed.write(unrelaxed_output)
+
+    if args.relax:
+        # Hard coded for graphene and hBN
+        posinp = posinp.translate([0.62, 0.36, posinp.cell[2, 2] / 2])
+
+        from ml_raman.raman.neighbors import precalculate_patches_and_environments
+        from utils.models import get_graphene_patches_grid, get_schnet_hyperparams
+
+        n_neurons, n_interactions, cutoff = get_schnet_hyperparams(args.model)
+        patches_grid = get_graphene_patches_grid(
+            "forces", n_interactions, cutoff, n_neurons, Mx, My
         )
-        g_ase = posinp_to_ase_atoms(g.final_posinp)
-        g_ase.write(filename_relaxed)
+        if args.precalculate_neighbors:
+            atomic_environments, _ = precalculate_patches_and_environments(
+                posinp, patches_grid, cutoff, n_interactions
+            )
+        else:
+            atomic_environments = None
+
+        calc = PatchSPCalculator(
+            args.model,
+            device=args.device,
+            subgrid=patches_grid,
+            atomic_environments=atomic_environments,
+        )
+        g = Geopt(
+            posinp, calc, step_size=args.step, max_iter=args.max_iter, forcemax=0.015
+        )
+        g.run(verbose=2)
+
+        # Undo first translation
+        final_posinp = g.best_posinp.translate(
+            [-0.62, -0.36, -1.0 * posinp.cell[2, 2] / 2]
+        )
+
+        relaxed_output = args.output_name + "_relaxed." + args.output_format
+        if args.output_format == "mlc":
+            final_posinp.write(relaxed_output)
+        elif args.output_format in ["xyz", "cif"]:
+            ase_relaxed = posinp_to_ase_atoms(final_posinp)
+            ase_relaxed.write(relaxed_output)
     else:
         pass
-
-    posinp_ase_unrelaxed = posinp_to_ase_atoms(posinp)
-    filename_unrelaxed = (
-        args.output_name
-        if args.output_name.endswith(".xyz")
-        else args.output_name + ".xyz"
-    )
-
-    posinp_ase_unrelaxed.write(filename_unrelaxed)
-    filename_vacidx = (
-        args.output_name[:-4] + "_vacidx.dat"
-        if args.output_name.endswith(".xyz")
-        else args.output_name + "_vacidx.dat"
-    )
-    np.savetxt(filename_vacidx, indices_to_remove)
 
 
 if __name__ == "__main__":
