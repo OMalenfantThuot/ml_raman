@@ -10,11 +10,11 @@ plt.rc("text", usetex=True)
 plt.rc("text.latex", preamble=r"\usepackage{bm}")
 
 
-datadir = "data/B/"
+datadir = "data/N/"
 
 raman_data = []
 
-concentrations = [0.0, 0.005, 0.01, 0.015, 0.02, 0.025, 0.030, 0.035]
+concentrations = [0.0, 0.005, 0.01, 0.015, 0.02, 0.025, 0.030]
 for concentration in concentrations:
     con_data = []
     con_string = f"{concentration:.3f}"
@@ -55,9 +55,9 @@ for i, (concentration, color) in enumerate(zip(concentrations, colors)):
         label=f"{concentration*100:.1f}\%",
         color=color,
     )
-ax.legend(loc="upper left", title="B vacancies\nconcentration")
+ax.legend(loc="upper left", title="N vacancies\nconcentration")
 
 # ax.plot(raman_data[0][0], raman_data[-1][1] - raman_data[0][1])
 
 # plt.show()
-plt.savefig("B_vacancies.pdf")
+plt.savefig("N_vacancies.pdf")

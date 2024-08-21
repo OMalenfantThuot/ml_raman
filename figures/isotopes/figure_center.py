@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy
+import scipy.optimize
 import os
 
 font = {"family": "CMU Serif", "size": 18}

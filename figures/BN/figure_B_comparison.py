@@ -14,7 +14,7 @@ datadir = "data/B/"
 
 raman_data = []
 
-concentrations = [0.0, 0.005, 0.01, 0.015, 0.02, 0.025, 0.030, 0.035]
+concentrations = [0.0, 0.035]
 for concentration in concentrations:
     con_data = []
     con_string = f"{concentration:.3f}"
@@ -26,38 +26,22 @@ for concentration in concentrations:
     raman_data.append(con_data)
 
 raman_data = np.stack(raman_data)
-offset = 35
-colors = [
-    "#313695",
-    "#4575b4",
-    "#74add1",
-    "#abd9e9",
-    "#fdae61",
-    "#f46d43",
-    "#d73027",
-    "#a50026",
-]
 
-
-fig = plt.figure(figsize=(8, 9))
-gs = fig.add_gridspec(nrows=1, ncols=1, left=0.06, right=0.99, top=0.99, bottom=0.09)
+fig = plt.figure(figsize=(8, 5))
+gs = fig.add_gridspec(nrows=1, ncols=1, left=0.06, right=0.99, top=0.99, bottom=0.15)
 
 ax = fig.add_subplot(gs[0, 0])
 ax.set_yticks([])
-ax.set_xlim(0, 1700)
-ax.set_ylabel("Relative Intensities", fontsize=25)
+ax.set_xlim(30, 1650)
+ax.set_ylim(0, 0.15)
+ax.set_ylabel("Relative intensities", fontsize=25)
 ax.set_xlabel(r"Frequencies (cm$^{-1}$)", fontsize=25)
 
-for i, (concentration, color) in enumerate(zip(concentrations, colors)):
-    ax.plot(
-        raman_data[i][0],
-        raman_data[i][1] + concentration * offset,
-        label=f"{concentration*100:.1f}\%",
-        color=color,
-    )
-ax.legend(loc="upper left", title="B vacancies\nconcentration")
 
-# ax.plot(raman_data[0][0], raman_data[-1][1] - raman_data[0][1])
+ax.plot(raman_data[0][0], raman_data[-1][1], color="#a50026", label=f"3.5\%")
+ax.plot(raman_data[0][0], raman_data[0][1], color="#313695", label=f"0.0\%")
+
+ax.legend(loc="upper left")
 
 # plt.show()
-plt.savefig("B_vacancies.pdf")
+plt.savefig("B_comparison.pdf")
