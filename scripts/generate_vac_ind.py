@@ -26,6 +26,9 @@ def create_parser():
         choices=["even", "random"],
         default="even",
     )
+    parser.add_argument(
+        "--save_name", default=None, help="Name of file to save indices into."
+    )
     return parser
 
 
@@ -49,17 +52,17 @@ def generate_indices(num_atoms, concentration, atom_type, distribution):
 
     # Generate a list of all valid indices for the specified atom type
     valid_indices = list(range(start_index, num_atoms, 2))
-    
+
     # Calculate the number of indices to select
     num_selected = int(np.round(2 * concentration * len(valid_indices)))
-    
-    if distribution =="even":
+
+    if distribution == "even":
         # Determine the step size to ensure equal spacing
         step_size = len(valid_indices) // num_selected
 
         # Generate equally spaced indices
         selected_indices = [valid_indices[i * step_size] for i in range(num_selected)]
-    elif distribution=="random":
+    elif distribution == "random":
         selected_indices = random.sample(valid_indices, num_selected)
         # Sort the indices to be in increasing order
         selected_indices.sort()
@@ -75,6 +78,14 @@ def main(args):
     )
     print("selected indices : ")
     print(" ".join(map(str, selected_indices)))
+
+    if args.save_name:
+        save_name = (
+            args.save_name
+            if args.save_name.endswith(".npy")
+            else args.save_name + ".npy"
+        )
+        np.save(save_name, selected_indices)
 
 
 if __name__ == "__main__":

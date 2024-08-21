@@ -49,11 +49,31 @@ class Raman:
         with h5py.File(self.phonons_path, "r") as f1:
             eigenval = np.array(f1[list(f1.keys())[0]])
             eigvec = np.array(f1[list(f1.keys())[1]])
-        sc = read(self.sc_path)
-        defective_masses = np.repeat(sc.get_masses(), 3)
 
-        abs1 = np.inner(self.v1, np.transpose(eigvec) / np.sqrt(defective_masses))
-        abs2 = np.inner(self.v2, np.transpose(eigvec) / np.sqrt(defective_masses))
+        try:
+            sc = Posinp.from_file(self.sc_path)
+            defective_masses = np.repeat(sc.masses, 3)
+        except Exception as e1:
+            try:
+                sc = read(self.sc_path)
+                defective_masses = np.repeat(sc.get_masses(), 3)
+            except Exception as e2:
+                print(f"ML_Calc_driver exception: {str(e1)}")
+                print(f"ASE exception: {str(e2)}")
+
+        eigvec = np.transpose(eigvec) / np.sqrt(defective_masses)
+        vec_norms = np.linalg.norm(eigvec, axis=1)
+
+        # Check for invalid modes
+        valid_modes = np.where(vec_norms > 0.01)
+        eigvec = eigvec[valid_modes] / vec_norms[valid_modes].reshape(-1, 1)
+        eigenval = eigenval[valid_modes]
+        del sc, defective_masses, valid_modes
+
+        abs1 = np.inner(self.v1, eigvec)
+        abs2 = np.inner(self.v2, eigvec)
+        print("v1 total projection: ", np.sum(abs1**2))
+        print("v2 total projection: ", np.sum(abs2**2))
         eigendisplacement_proj = abs1**2 + abs2**2
         return eigenval, eigendisplacement_proj
 

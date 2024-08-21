@@ -45,7 +45,7 @@ def create_parser():
         "output_name", help="name of the written figure file.", type=str
     )
     parser.add_argument(
-        "--vac_idx", help="Indices of vacancies.", type=int, nargs="*", default=None
+        "--vacancies_file", help="Path to the vacancies file", default=None
     )
     parser.add_argument(
         "--scale_masses",
@@ -94,41 +94,42 @@ def create_parser():
     return parser
 
 
-def compute_gamma_phonons(pc, natoms, vac_idx):
+def compute_gamma_phonons(pc, natoms, indices_to_remove):
     # function that constructs Raman active phonon modes at \Gamma from primitive cell modes.
-    n_vac = len(vac_idx) if vac_idx is not None else 0
+    n_vac = len(indices_to_remove) if indices_to_remove is not None else 0
     if pc == "C":
-        v1, v2 = gamma_phonons_graphene(natoms + n_vac)
+        v1, v2 = gamma_phonons_graphene(natoms)
     elif pc == "BN":
-        v1, v2 = gamma_phonons_hBN(natoms + n_vac)
+        v1, v2 = gamma_phonons_hBN(natoms)
     else:
         raise ValueError("Primitive cell not supported by script.")
     if n_vac != 0:
-        v1 = remove_vacancies(v1, vac_idx)
-        v2 = remove_vacancies(v2, vac_idx)
+        v1 = remove_vacancies(v1, indices_to_remove)
+        v2 = remove_vacancies(v2, indices_to_remove)
+    v1, v2 = v1 / np.linalg.norm(v1), v2 / np.linalg.norm(v2)
     return v1, v2
 
 
-def compute_gamma_eigendisplacements(pc, natoms, vac_idx):
+def compute_gamma_eigendisplacements(pc, natoms, indices_to_remove):
     # function that constructs Raman active eigendisplacement modes at \Gamma from primitive cell modes.
-    n_vac = len(vac_idx) if vac_idx is not None else 0
+    n_vac = len(indices_to_remove) if indices_to_remove is not None else 0
     if pc == "C":
-        v1, v2 = gamma_eigendisplacements_graphene(natoms + n_vac)
+        v1, v2 = gamma_eigendisplacements_graphene(natoms)
     elif pc == "BN":
-        v1, v2 = gamma_eigendisplacements_hBN(natoms + n_vac)
+        v1, v2 = gamma_eigendisplacements_hBN(natoms)
     else:
         raise ValueError("Primitive cell not supported by script.")
 
     if n_vac != 0:
-        v1 = remove_vacancies(v1, vac_idx)
-        v2 = remove_vacancies(v2, vac_idx)
+        v1 = remove_vacancies(v1, indices_to_remove)
+        v2 = remove_vacancies(v2, indices_to_remove)
+    v1, v2 = v1 / np.linalg.norm(v1), v2 / np.linalg.norm(v2)
     return v1, v2
 
 
-def remove_vacancies(mode, vac_idx):
+def remove_vacancies(mode, indices_to_remove):
     # function that removes components from phonon/eigendisplacement vectors at vacancies' indicies.
-    vac_idx.sort(reverse=True)
-    for idx in vac_idx:
+    for idx in indices_to_remove:
         mode = np.delete(mode, [3 * idx, 3 * idx + 1, 3 * idx + 2])
     return mode
 
@@ -152,30 +153,34 @@ def main(args):
     figure_title = args.figure_title
     save_raman = args.save_raman
     save_fit = args.save_fit
-    vac_idx = args.vac_idx
     scale_masses = args.scale_masses
     nmodes = 3 * natoms
 
+    if args.vacancies_file is not None:
+        indices_to_remove = np.flip(np.sort(np.load(args.vacancies_file)))
+    else:
+        indices_to_remove = None
+
     # compute projections.
     if scale_masses:
-        v1, v2 = compute_gamma_eigendisplacements(pc, natoms, vac_idx)
+        v1, v2 = compute_gamma_eigendisplacements(pc, natoms, indices_to_remove)
         # create a Raman instance.
         raman_inst = Raman(
             v1, v2, sc_path, phonons_path, width, smearing, npts, scale_masses
         )
         (
             eigenval,
-            eigendisplacement_proj,
+            proj,
         ) = raman_inst.compute_eigendisplacement_projections()
-        raman_inst.compute_raman(eigenval, eigendisplacement_proj)
     else:
-        v1, v2 = compute_gamma_phonons(pc, natoms, vac_idx)
+        v1, v2 = compute_gamma_phonons(pc, natoms, indices_to_remove)
         # create a Raman instance.
         raman_inst = Raman(
             v1, v2, sc_path, phonons_path, width, smearing, npts, scale_masses
         )
-        eigenval, phonon_proj = raman_inst.compute_phonon_projections()
-        raman_inst.compute_raman(eigenval, phonon_proj)
+        eigenval, proj = raman_inst.compute_phonon_projections()
+
+    raman_inst.compute_raman(eigenval, proj)
 
     # plot raman spectrum.
     raman_inst.plot_raman(x_min, x_max, figure_title)

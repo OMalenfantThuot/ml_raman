@@ -94,12 +94,17 @@ def lanczos_raman_projections(
     patches=None,
 ):
     if material == "graphene":
-        from ml_raman.raman.gamma_modes_graphene import gamma_eigendisplacements_graphene
+        from ml_raman.raman.gamma_modes_graphene import (
+            gamma_eigendisplacements_graphene,
+        )
 
         v1, v2 = gamma_eigendisplacements_graphene(len(posinp))
         v1, v2 = v1.flatten(), v2.flatten()
     elif material == "BN":
-        raise NotImplementedError()
+        from ml_raman.raman.gamma_modes_hBN import gamma_eigendisplacements_hBN
+
+        v1, v2 = gamma_eigendisplacements_hBN(len(posinp))
+        v1, v2 = v1.flatten(), v2.flatten()
     else:
         raise NotImplementedError()
 

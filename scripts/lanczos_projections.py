@@ -65,7 +65,9 @@ def main(args):
     # Center the positions so that small displacements don't cross the boundary
     if args.material == "graphene":
         assert (posinp[0].position[0:2] == np.array([0, 0])).all()
-        posinp = posinp.translate([1.233, 0.712, posinp.cell[2, 2] / 2])
+        posinp = posinp.translate([0.61, 0.35, posinp.cell[2, 2] / 2])
+    elif args.material == "BN":
+        posinp = posinp.translate([0.62, 0.36, posinp.cell[2, 2] / 2])
     else:
         raise NotImplementedError()
 
