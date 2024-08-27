@@ -58,38 +58,14 @@ def create_parser():
     )
     phonon_parser.add_argument(
         "--results_savepath", help="Name of the output file for the phonon results."
-    )
-    phonon_parser.add_argument(
-        "--sparse",
-        default=False,
-        action="store_true",
-        help="Use sparse matrices and Lanczos algorithm.",
-    )
+    ) 
     phonon_parser.add_argument(
         "--use_jax",
         default=False,
         action="store_true",
         help="Use JAX for diagonalization",
     )
-    phonon_parser.add_argument(
-        "--eigs_proportion",
-        type=float,
-        default=0.05,
-        help="Proportion of eigenvalues computed by Lanczos. Only relevant in sparse calculations.",
-    )
-    phonon_parser.add_argument(
-        "--tol",
-        type=float,
-        default=0,
-        help="Tolerance for the Lanczos convergence. Only relevant in sparse calculations.",
-    )
-    phonon_parser.add_argument(
-        "--initial_guess",
-        default=None,
-        choices=[None, "graphene", "hBN"],
-        help="Use the Gamma Raman active modes  as initial guess in the Lanczos algorithm.",
-    )
-    return parser
+        return parser
 
 
 def load_hessian(args):
