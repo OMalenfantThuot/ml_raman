@@ -11,7 +11,7 @@ def create_parser():
     parser.add_argument("num_atoms", help="total number of atoms.", type=int)
     parser.add_argument(
         "concentration",
-        help="concentration of vacancies. Note that concentration = #vac/#num_atoms",
+        help="concentration of vacancies. Note that concentration = #vac/#atoms",
         type=float,
     )
     parser.add_argument(

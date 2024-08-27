@@ -31,7 +31,11 @@ def create_parser():
         help="Primitive cell. Arguments supported for now are C and BN.",
         type=str,
     )
-    parser.add_argument("natoms", help="Number of atoms in supercell.", type=int)
+    parser.add_argument(
+        "natoms",
+        help="Number of atoms in supercell before introducing vacancies.",
+        type=int,
+    )
     parser.add_argument("sc_path", help="Path to file of supercell.", type=str)
     parser.add_argument(
         "phonons_path", help="Path to file containing phonons.", type=str
