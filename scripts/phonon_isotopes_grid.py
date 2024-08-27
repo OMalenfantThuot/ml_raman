@@ -58,14 +58,14 @@ def create_parser():
     )
     phonon_parser.add_argument(
         "--results_savepath", help="Name of the output file for the phonon results."
-    ) 
+    )
     phonon_parser.add_argument(
         "--use_jax",
         default=False,
         action="store_true",
         help="Use JAX for diagonalization",
     )
-        return parser
+    return parser
 
 
 def load_hessian(args):
