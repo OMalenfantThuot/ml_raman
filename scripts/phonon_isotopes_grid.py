@@ -44,7 +44,12 @@ def create_parser():
         type=int,
         help="Size of the grid. If None, will be chosen by the code.",
     )
-    hessian_parser.add_argument("--sparse", default=False, action="store_true")
+    hessian_parser.add_argument(
+        "--sparse",
+        default=False,
+        help="Option for efficient storage of sparse hessian matrix using .npz format.",
+        action="store_true",
+    )
     phonon_parser = calculation_type_subparser.add_parser(
         "phonon", parents=[parent_parser]
     )
@@ -165,7 +170,7 @@ def main(args):
                 exit()
 
         hessian = load_hessian(args)
-       
+
         phonon = PhononFromHessian(posinp=posinp, hessian=hessian, sparse=False)
         phonon.run(use_jax=args.use_jax, sparse_kwargs={})
 
