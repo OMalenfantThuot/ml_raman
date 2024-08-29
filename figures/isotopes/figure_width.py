@@ -9,12 +9,9 @@ plt.rc("font", **font)
 plt.rc("text", usetex=True)
 plt.rc("text.latex", preamble=r"\usepackage{bm}")
 
-
 datadir = "data/"
 
 exp_width_data = pd.read_csv(os.path.join(datadir, "FWHM_exp.csv"))
-exp_center_data = pd.read_csv(os.path.join(datadir, "center_exp.csv"))
-
 concentrations = np.linspace(0, 1, 21)
 
 data_dict = {
@@ -54,9 +51,11 @@ ax.grid("on")
 exp = ax.errorbar(
     exp_width_data["concentration"],
     exp_width_data["width"],
+    xerr=exp_width_data["concentration_err"],
+    yerr=exp_width_data["width_err"],
     color="r",
-    marker="x",
-    markersize=10,
+    marker="o",
+    markersize=5,
     linestyle="",
 )
 ml = ax.errorbar(
@@ -70,7 +69,7 @@ ml = ax.errorbar(
 
 
 ax.legend(
-    [exp[0], ml],
+    [exp, ml],
     [
         "Experimental",
         "ML",
@@ -80,5 +79,5 @@ ax.legend(
 ax.set_xlabel(r"$^{13}$C concentration", fontsize=20)
 ax.set_ylabel(r"G peak width ($\textrm{cm}^{-1}$)", fontsize=20)
 
-#plt.show()
+# plt.show()
 plt.savefig("figure_width.pdf")

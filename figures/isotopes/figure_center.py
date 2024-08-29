@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.optimize
+from scipy.odr import ODR, Model, RealData
 import os
 
 font = {"family": "CMU Serif", "size": 18}
@@ -9,12 +10,9 @@ plt.rc("font", **font)
 plt.rc("text", usetex=True)
 plt.rc("text.latex", preamble=r"\usepackage{bm}")
 
-
 datadir = "data/"
 
-exp_width_data = pd.read_csv(os.path.join(datadir, "FWHM_exp.csv"))
 exp_center_data = pd.read_csv(os.path.join(datadir, "center_exp.csv"))
-
 concentrations = np.linspace(0, 1, 21)
 
 data_dict = {
@@ -47,16 +45,31 @@ for concentration in concentrations:
         data_dict["concentrations"].append(concentration)
 
 
-def linear_fit(x, a, b):
+def ml_linear_fit(x, a, b):
     return a * x + b
 
 
-popt_exp, std_popt_exp = scipy.optimize.curve_fit(
-    linear_fit, exp_center_data["concentration"], exp_center_data["center"]
-)
 popt_ml, std_popt_ml = scipy.optimize.curve_fit(
-    linear_fit, data_dict["concentrations"], data_dict["centers"]
+    ml_linear_fit, data_dict["concentrations"], data_dict["centers"]
 )
+
+
+def exp_linear_fit(p, x):
+    return p[0] * x + p[1]
+
+
+exp_data = RealData(
+    x=exp_center_data["concentration"],
+    y=exp_center_data["center"],
+    sx=exp_center_data["concentration_err"],
+    sy=exp_center_data["center_err"],
+)
+model = Model(exp_linear_fit)
+exp_odr = ODR(exp_data, model, beta0=[-60.0, 1500])
+exp_odr.set_job(fit_type=2)
+exp_fit = exp_odr.run()
+
+
 x = np.linspace(0, 1, 100)
 
 fig = plt.figure(figsize=(8, 9))
@@ -67,15 +80,26 @@ ax.grid("on")
 exp = ax.errorbar(
     exp_center_data["concentration"],
     exp_center_data["center"],
+    xerr=exp_center_data["concentration_err"],
+    yerr=exp_center_data["center_err"],
     color="r",
     marker="o",
+    markersize=5,
     linestyle="",
 )
-exp_fit = ax.plot(
-    x, linear_fit(x, *popt_exp), color="r", linestyle="--", label=r"Slope $(3 \pm 1 )$"
+exp_fit_curve = ax.plot(
+    x,
+    exp_linear_fit(exp_fit.beta, x),
+    color="r",
+    linestyle="--",
+    label=r"Slope $(3 \pm 1 )$",
 )
-ml_fit = ax.plot(
-    x, linear_fit(x, *popt_ml), color="b", linestyle="--", label=r"Slope $(3 \pm 1 )$"
+ml_fit_curve = ax.plot(
+    x,
+    ml_linear_fit(x, *popt_ml),
+    color="b",
+    linestyle="--",
+    label=r"Slope $(3 \pm 1 )$",
 )
 ml = ax.errorbar(
     data_dict["concentrations"],
@@ -86,15 +110,14 @@ ml = ax.errorbar(
     linestyle="",
 )
 
-
 ax.legend(
-    [exp[0], exp_fit[0], ml_fit[0], ml[0]],
+    [exp, exp_fit_curve[0], ml_fit_curve[0], ml[0]],
     [
         "Experimental",
         "Slope: "
-        + f"({popt_exp[0]:3.1f} "
+        + f"({exp_fit.beta[0]:3.1f} "
         + r"$\pm$"
-        + f" {np.sqrt(std_popt_exp[0,0]):3.1f})"
+        + f" {exp_fit.sd_beta[0]:3.1f})"
         + r"$\textrm{cm}^{-1}$",
         "Slope: "
         + f"({popt_ml[0]:3.1f} "
@@ -107,5 +130,5 @@ ax.legend(
 ax.set_xlabel(r"$^{13}$C concentration", fontsize=20)
 ax.set_ylabel(r"G peak position ($\textrm{cm}^{-1}$)", fontsize=20)
 
-#plt.show()
+# plt.show()
 plt.savefig("figure_center.pdf")
